@@ -384,7 +384,6 @@ Win32ToggleFullscreen(HWND Window)
     }
 }
 
-
 internal void
 Win32ProcessPendingMessage(game_controller_input *KeyboardController)
 {
@@ -542,7 +541,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
 
     // TODO(wheatdog): Need more robust test here. This value seems to be the
     // maximum latency I will get.
-    r32 MaxAudioLantencyInFrames = 2.5f;
+    r32 MaxAudioLantencyInFrames = 1.5f;
     u32 SamplePerSecond = 48000;
     u32 ChannelCount = 2;
     u32 BytePerSample = sizeof(i16);
@@ -721,10 +720,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
         }
         GameSound.SampleCount = Win32Audio.LatencyInSample - RemainSample;
 
-        // char ShowBuffer[128];
-        // snprintf(ShowBuffer, sizeof(ShowBuffer), "Before UpdateAndRender - PC: %d, WC: %d, RS: %d, Fill: %d\n",
-        //          PlayCursor, Win32Audio.WriteCursor, RemainSample, GameSound.SampleCount);
-        // OutputDebugStringA(ShowBuffer);
+        char ShowBuffer[128];
+        snprintf(ShowBuffer, sizeof(ShowBuffer), "Before UpdateAndRender - PC: %d, WC: %d, RS: %d, Fill: %d\n",
+                 PlayCursor, Win32Audio.WriteCursor, RemainSample, GameSound.SampleCount);
+        OutputDebugStringA(ShowBuffer);
 
         GameUpdateAndRender(&GameMemory, &GameScreenBuffer, &GameSound, NewInput);
 
@@ -735,9 +734,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
         {
             RemainSample += Win32Audio.BufferSizeInSample;
         }
-        // snprintf(ShowBuffer, sizeof(ShowBuffer), "After UAR - Before FSB - PC: %d, WC: %d, RemainSample: %d\n",
-        //          PlayCursor, Win32Audio.WriteCursor, RemainSample);
-        // OutputDebugStringA(ShowBuffer);
+        snprintf(ShowBuffer, sizeof(ShowBuffer), "After UAR - Before FSB - PC: %d, WC: %d, RemainSample: %d\n",
+                 PlayCursor, Win32Audio.WriteCursor, RemainSample);
+        OutputDebugStringA(ShowBuffer);
 
         Win32FillSoundBuffer(&GameSound, &Win32Audio);
 
