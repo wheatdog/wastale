@@ -217,9 +217,9 @@ Win32InitXAudio2(u32 SamplePerSecond, u32 BufferSizeInSample,
     }
 
     Result.OutputWaveFormat.wFormatTag = WAVE_FORMAT_PCM;
-    Result.OutputWaveFormat.nChannels = ChannelCount;
+    Result.OutputWaveFormat.nChannels = (WORD)ChannelCount;
     Result.OutputWaveFormat.nSamplesPerSec = SamplePerSecond;
-    Result.OutputWaveFormat.wBitsPerSample = BytePerSample*8;
+    Result.OutputWaveFormat.wBitsPerSample = (WORD)BytePerSample*8;
     Result.OutputWaveFormat.nBlockAlign = (Result.OutputWaveFormat.nChannels*Result.OutputWaveFormat.wBitsPerSample)/8;
     Result.OutputWaveFormat.nAvgBytesPerSec = Result.OutputWaveFormat.nSamplesPerSec*Result.OutputWaveFormat.nBlockAlign;
 
@@ -302,11 +302,11 @@ Win32FillSoundBuffer(game_sound *GameSound, win32_xaudio *Win32Audio)
         }
 
         i16* DestSample = (i16 *)XAudioBuffer[BufferIndex].pAudioData;
-        for(i32 SampleIndex = 0;
+        for(u32 SampleIndex = 0;
             SampleIndex < SampleToWrite[BufferIndex];
             ++SampleIndex)
         {
-            for (i32 ChannelIndex = 0;
+            for (u32 ChannelIndex = 0;
                  ChannelIndex < GameSound->ChannelCount;
                  ++ChannelIndex)
             {
@@ -524,15 +524,11 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
     r32 GameRefreshHz = (MonitorRefreshHz / 2.0f);
     r32 TargetSecondElapsed = 1.0f / GameRefreshHz;
 
-    // TODO(wheatdog): Need more robust test here. This value seems to be the
-    // maximum latency I will get.
-#define FRAME_OF_AUDIO_LANTENCY 2.5f
-
     // TODO(wheatdog): Handle various memory footprints
     game_memory GameMemory = {};
     GameMemory.PermanentStorageSize = MegaBytes(512);
     GameMemory.TransientStorageSize = GigaBytes(1);
-    u32 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
+    u64 TotalSize = GameMemory.PermanentStorageSize + GameMemory.TransientStorageSize;
     GameMemory.PermanentStorage = VirtualAlloc(0, TotalSize, MEM_RESERVE|MEM_COMMIT,
                                                PAGE_READWRITE);
     GameMemory.TransientStorage = ((u8 *)GameMemory.PermanentStorage +
@@ -544,10 +540,13 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
         return -1;
     }
 
+    // TODO(wheatdog): Need more robust test here. This value seems to be the
+    // maximum latency I will get.
+    r32 MaxAudioLantencyInFrames = 2.5f;
     u32 SamplePerSecond = 48000;
     u32 ChannelCount = 2;
     u32 BytePerSample = sizeof(i16);
-    u32 LatencyInSample = FRAME_OF_AUDIO_LANTENCY*(SamplePerSecond / GameRefreshHz);
+    u32 LatencyInSample = (u32)(MaxAudioLantencyInFrames*(SamplePerSecond / GameRefreshHz));
     win32_xaudio Win32Audio = Win32InitXAudio2(SamplePerSecond, SamplePerSecond,
                                                 ChannelCount, BytePerSample, LatencyInSample);
 

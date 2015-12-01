@@ -5,7 +5,7 @@
 #define global_variable static
 #define local_persist static
 
-#define Pi32 3.14159265359
+#define Pi32 3.14159265359f
 
 #define KiloBytes(Value) (Value * 1024LL)
 #define MegaBytes(Value) (KiloBytes(Value) * 1024LL)

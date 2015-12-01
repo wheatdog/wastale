@@ -24,15 +24,15 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, i32 XOffset, i32 YOffset)
 internal void
 FillSoundOutput(game_sound *GameSound, game_state *GameState)
 {
-    u32 WavePeriod = GameSound->SamplePerSecond / GameState->ToneHz;
+    u32 WavePeriod = (u32)(GameSound->SamplePerSecond / GameState->ToneHz);
     i16 *SampleOut = (i16 *)GameSound->Buffer;
-    for (int SampleIndex = 0;
+    for (u32 SampleIndex = 0;
          SampleIndex < GameSound->SampleCount;
          ++SampleIndex)
     {
         i16 SampleValue = (i16)(GameState->Volume * sinf(GameState->tSine));
 
-        for (int ChannelIndex = 0;
+        for (u32 ChannelIndex = 0;
              ChannelIndex < GameSound->ChannelCount;
              ++ChannelIndex)
         {
@@ -70,8 +70,8 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             continue;
         }
 
-        GameState->X += Controller->LeftStick.X*10;
-        GameState->Y += Controller->LeftStick.Y*10;
+        GameState->X += (u32)(Controller->LeftStick.X*10.0f);
+        GameState->Y += (u32)(Controller->LeftStick.Y*10.0f);
     }
 
     RenderWeirdGradient(Buffer, GameState->X, GameState->Y);
