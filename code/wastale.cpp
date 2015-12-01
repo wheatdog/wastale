@@ -53,9 +53,6 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
     if (!GameMemory->IsInitial)
     {
-        GameState->ToneHz = 512;
-        GameState->Volume = 10000;
-
         GameMemory->IsInitial = true;
     }
 
@@ -75,5 +72,17 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
     }
 
     RenderWeirdGradient(Buffer, GameState->X, GameState->Y);
+}
+
+//NOTE(wheatdog): This must be fast. ~1ms
+GAME_FILL_SOUND(GameFillSound)
+{
+    game_state *GameState = (game_state *)GameMemory->PermanentStorage;
+    if (!GameMemory->IsInitial)
+    {
+        GameState->ToneHz = 512;
+        GameState->Volume = 10000;
+    }
+
     FillSoundOutput(GameSound, GameState);
 }

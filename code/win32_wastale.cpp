@@ -721,24 +721,14 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
         GameSound.SampleCount = Win32Audio.LatencyInSample - RemainSample;
 
         char ShowBuffer[128];
-        snprintf(ShowBuffer, sizeof(ShowBuffer), "Before UpdateAndRender - PC: %d, WC: %d, RS: %d, Fill: %d\n",
+        snprintf(ShowBuffer, sizeof(ShowBuffer), "PC: %d, WC: %d, RS: %d, Fill: %d\n",
                  PlayCursor, Win32Audio.WriteCursor, RemainSample, GameSound.SampleCount);
         OutputDebugStringA(ShowBuffer);
 
-        GameUpdateAndRender(&GameMemory, &GameScreenBuffer, &GameSound, NewInput);
-
-        Win32Audio.SourceVoice->GetState(&VoiceState);
-        PlayCursor = (u32)(VoiceState.SamplesPlayed % Win32Audio.BufferSizeInSample);
-        RemainSample = (Win32Audio.WriteCursor - PlayCursor);
-        if (Win32Audio.WriteCursor < PlayCursor)
-        {
-            RemainSample += Win32Audio.BufferSizeInSample;
-        }
-        snprintf(ShowBuffer, sizeof(ShowBuffer), "After UAR - Before FSB - PC: %d, WC: %d, RemainSample: %d\n",
-                 PlayCursor, Win32Audio.WriteCursor, RemainSample);
-        OutputDebugStringA(ShowBuffer);
-
+        GameFillSound(&GameMemory, &GameSound);
         Win32FillSoundBuffer(&GameSound, &Win32Audio);
+
+        GameUpdateAndRender(&GameMemory, &GameScreenBuffer, NewInput);
 
         LARGE_INTEGER WorkCounter = Win32GetPerfCount();
         r32 SecondElapseInFrame = Win32GetSecondsElapse(LastCounter, WorkCounter);

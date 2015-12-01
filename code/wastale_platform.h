@@ -121,8 +121,11 @@ struct game_sound
     void *Buffer;
 };
 
-#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *GameMemory, game_offscreen_buffer *Buffer, game_sound *GameSound, game_input *GameInput)
+#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *GameMemory, game_offscreen_buffer *Buffer, game_input *GameInput)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
+
+#define GAME_FILL_SOUND(name) void name(game_memory *GameMemory, game_sound *GameSound)
+typedef GAME_FILL_SOUND(game_fill_sound);
 
 /*
   NOTE(wheatdog): Services that the platform provides for the game.
