@@ -1,4 +1,5 @@
 #include <math.h>
+#include "wastale.h"
 
 internal void
 RenderWeirdGradient(game_offscreen_buffer *Buffer, i32 XOffset, i32 YOffset)
@@ -21,15 +22,15 @@ RenderWeirdGradient(game_offscreen_buffer *Buffer, i32 XOffset, i32 YOffset)
 }
 
 internal void
-FillSoundOutput(game_sound *GameSound)
+FillSoundOutput(game_sound *GameSound, game_state *GameState)
 {
-    u32 WavePeriod = GameSound->SamplePerSecond / GameSound->ToneHz;
+    u32 WavePeriod = GameSound->SamplePerSecond / GameState->ToneHz;
     i16 *SampleOut = (i16 *)GameSound->Buffer;
     for (int SampleIndex = 0;
          SampleIndex < GameSound->SampleCount;
          ++SampleIndex)
     {
-        i16 SampleValue = (i16)(GameSound->Volume * sinf(GameSound->tSine));
+        i16 SampleValue = (i16)(GameState->Volume * sinf(GameState->tSine));
 
         for (int ChannelIndex = 0;
              ChannelIndex < GameSound->ChannelCount;
@@ -38,16 +39,41 @@ FillSoundOutput(game_sound *GameSound)
             *SampleOut++ = SampleValue;
         }
 
-        GameSound->tSine += 2.0f*Pi32*(1.0f / (r32)WavePeriod);
-        if (GameSound->tSine > 2.0f*Pi32)
+        GameState->tSine += 2.0f*Pi32*(1.0f / (r32)WavePeriod);
+        if (GameState->tSine > 2.0f*Pi32)
         {
-            GameSound->tSine -= 2.0f*Pi32;
+            GameState->tSine -= 2.0f*Pi32;
         }
     }
 }
 
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
-    RenderWeirdGradient(Buffer, 0, 0);
-    FillSoundOutput(GameSound);
+    game_state *GameState = (game_state *)GameMemory->PermanentStorage;
+    Assert(sizeof(game_state) <= GameMemory->PermanentStorageSize);
+    if (!GameMemory->IsInitial)
+    {
+        GameState->ToneHz = 512;
+        GameState->Volume = 10000;
+
+        GameMemory->IsInitial = true;
+    }
+
+    for (u32 ControllerIndex = 0;
+         ControllerIndex < ArrayCount(GameInput->Controllers);
+         ++ControllerIndex)
+    {
+        game_controller_input *Controller = GameInput->Controllers + ControllerIndex;
+
+        if (!Controller->IsConnected)
+        {
+            continue;
+        }
+
+        GameState->X += Controller->LeftStick.X*10;
+        GameState->Y += Controller->LeftStick.Y*10;
+    }
+
+    RenderWeirdGradient(Buffer, GameState->X, GameState->Y);
+    FillSoundOutput(GameSound, GameState);
 }

@@ -59,21 +59,69 @@ struct game_offscreen_buffer
     u32 PitchInByte;
 };
 
+struct game_button_state
+{
+    u32 HalfTransitionCount;
+    b32 EndedDown;
+};
+
+struct game_controller_stick
+{
+    r32 X;
+    r32 Y;
+};
+
+struct game_controller_input
+{
+    b32 IsConnected;
+    b32 IsAnalog;
+    game_controller_stick LeftStick;
+    game_controller_stick RightStick;
+
+    union
+    {
+        game_button_state Buttons[12];
+        struct
+        {
+            game_button_state MoveUp;
+            game_button_state MoveDown;
+            game_button_state MoveLeft;
+            game_button_state MoveRight;
+
+            game_button_state YButton;
+            game_button_state XButton;
+            game_button_state AButton;
+            game_button_state BButton;
+
+            game_button_state LeftSoulder;
+            game_button_state RightSoulder;
+
+            game_button_state Back;
+            game_button_state Start;
+
+            // NOTE(wheatdog): All button must be added before this line
+
+            game_button_state Terminator;
+        };
+    };
+};
+
+struct game_input
+{
+    r32 dtForFrame;
+    game_controller_input Controllers[5];
+};
+
 struct game_sound
 {
     u32 SamplePerSecond;
     u32 SampleCount;
-    void *Buffer;
-
     u32 ChannelCount;
     u32 BytePerSample;
-
-    r32 ToneHz;
-    r32 Volume;
-    r32 tSine;
+    void *Buffer;
 };
 
-#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *GameMemory, game_offscreen_buffer *Buffer, game_sound *GameSound)
+#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *GameMemory, game_offscreen_buffer *Buffer, game_sound *GameSound, game_input *GameInput)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
 /*
