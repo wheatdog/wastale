@@ -45,9 +45,45 @@ typedef i32 b32;
 typedef float r32;
 typedef double r64;
 
-/*
-  NOTE(wheatdog): Services that the game provides for the platform.
-*/
+//
+// NOTE(wheatdog): Utility
+//
+
+inline u32
+SafeTruncateUInt64(u64 Value)
+{
+    Assert(Value <= 0xFFFFFFFF);
+    u32 Result = (u32)Value;
+    return Result;
+}
+
+//
+// NOTE(wheatdog): Services that the platform provides for the game.
+//
+
+struct thread_context
+{
+    int Placeholder;
+};
+
+struct debug_read_file_result
+{
+    u32 Size;
+    void *Content;
+};
+
+#define DEBUG_PLATFORM_FREE_FILE_MEMORY(name) void name(thread_context *Thread, void* Memory)
+typedef DEBUG_PLATFORM_FREE_FILE_MEMORY(debug_platform_free_file_memory);
+
+#define DEBUG_PLATFORM_READ_ENTIRE_FILE(name) debug_read_file_result name(thread_context *Thread, char* Filename)
+typedef DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_platform_read_entire_file);
+
+#define DEBUG_PLATFORM_WRITE_ENTIRE_FILE(name) b32 name(thread_context *Thread, char* Filename, u32 FileSize, void* Memory)
+typedef DEBUG_PLATFORM_WRITE_ENTIRE_FILE(debug_platform_write_entire_file);
+
+//
+// NOTE(wheatdog): Services that the game provides for the platform.
+//
 
 struct game_memory
 {
@@ -57,6 +93,10 @@ struct game_memory
 
     u64 TransientStorageSize;
     void *TransientStorage; // NOTE(wheatdog): REQUIRE to be cleared to zero at startup
+
+    debug_platform_write_entire_file *DEBUGPlatformWriteEntireFile;
+    debug_platform_read_entire_file *DEBUGPlatformReadEntireFile;
+    debug_platform_free_file_memory *DEBUGPlatformFreeFileMemory;
 };
 
 struct game_offscreen_buffer
@@ -130,14 +170,10 @@ struct game_sound
     void *Buffer;
 };
 
-#define GAME_UPDATE_AND_RENDER(name) void name(game_memory *GameMemory, game_offscreen_buffer *Buffer, game_input *GameInput)
+#define GAME_UPDATE_AND_RENDER(name) void name(thread_context *Thread, game_memory *GameMemory, game_offscreen_buffer *Buffer, game_input *GameInput)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render);
 
-#define GAME_FILL_SOUND(name) void name(game_memory *GameMemory, game_sound *GameSound)
+#define GAME_FILL_SOUND(name) void name(thread_context *Thread, game_memory *GameMemory, game_sound *GameSound)
 typedef GAME_FILL_SOUND(game_fill_sound);
-
-/*
-  NOTE(wheatdog): Services that the platform provides for the game.
-*/
 
 #endif

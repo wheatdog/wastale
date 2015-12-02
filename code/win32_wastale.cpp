@@ -34,6 +34,82 @@ global_variable win32_offscreen_buffer GlobalScreenBuffer;
 global_variable i64 GlobalPerfCountFreq;
 global_variable WINDOWPLACEMENT GlobalWindowPlacement;
 
+DEBUG_PLATFORM_FREE_FILE_MEMORY(DEBUGPlatformFreeFileMemory)
+{
+    if (Memory)
+    {
+        VirtualFree(Memory, 0, MEM_RELEASE);
+    }
+}
+
+DEBUG_PLATFORM_READ_ENTIRE_FILE(DEBUGPlatformReadEntireFile)
+{
+    debug_read_file_result Result = {};
+
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ, 0,
+                                    OPEN_EXISTING, 0, 0);
+    if (FileHandle == INVALID_HANDLE_VALUE)
+    {
+        // TODO(wheatdog): Logging
+        Assert(!"Error");
+    }
+
+    LARGE_INTEGER FileSize;
+    if (!GetFileSizeEx(FileHandle, &FileSize))
+    {
+        // TODO(wheatdog): Logging
+        Assert(!"Error");
+    }
+
+    // TODO(wheatdog): Define for maximum values.
+    u32 FileSize32 = SafeTruncateUInt64(FileSize.QuadPart);
+    Result.Content = VirtualAlloc(0, FileSize32, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    if (!Result.Content)
+    {
+        // TODO(wheatdog): Logging
+        Assert(!"Error");
+    }
+
+    DWORD ByteRead;
+    if (ReadFile(FileHandle, Result.Content, FileSize32, &ByteRead, 0) &&
+        (ByteRead == FileSize32))
+    {
+        // NOTE(wheatdog): Read file successfully
+        Result.Size = ByteRead;
+    }
+    else
+    {
+        DEBUGPlatformFreeFileMemory(Thread, Result.Content);
+        Result.Content = 0;
+        // TODO(wheatdog): Logging
+    }
+
+    return Result;
+}
+
+DEBUG_PLATFORM_WRITE_ENTIRE_FILE(DEBUGPlatformWriteEntireFile)
+{
+    b32 Result = false;
+
+    HANDLE FileHandle = CreateFileA(Filename, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    if (FileHandle == INVALID_HANDLE_VALUE)
+    {
+        // TODO(wheatdog): Logging
+        Assert(!"Error");
+    }
+
+    DWORD ByteWritten;
+    if (!WriteFile(FileHandle, Memory, FileSize, &ByteWritten, 0))
+    {
+        // TODO(wheatdog): Loggin
+    }
+    Result = (ByteWritten == FileSize);
+
+    CloseHandle(FileHandle);
+
+    return Result;
+}
+
 internal void
 Win32UnloadGameCode(win32_game_code *Game)
 {
@@ -657,6 +733,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
     r32 GameRefreshHz = (MonitorRefreshHz / 2.0f);
     r32 TargetSecondElapsed = 1.0f / GameRefreshHz;
 
+    // TODO(wheatdog): Thread
+    thread_context Thread = {};
+
     // TODO(wheatdog): Handle various memory footprints
     game_memory GameMemory = {};
     GameMemory.PermanentStorageSize = MegaBytes(512);
@@ -666,6 +745,9 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
                                                PAGE_READWRITE);
     GameMemory.TransientStorage = ((u8 *)GameMemory.PermanentStorage +
                                    GameMemory.PermanentStorageSize);
+    GameMemory.DEBUGPlatformFreeFileMemory = DEBUGPlatformFreeFileMemory;
+    GameMemory.DEBUGPlatformReadEntireFile = DEBUGPlatformReadEntireFile;
+    GameMemory.DEBUGPlatformWriteEntireFile = DEBUGPlatformWriteEntireFile;
 
     if (!GameMemory.PermanentStorage || !GameMemory.TransientStorage)
     {
@@ -868,14 +950,14 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
 
         if (Game.IsValid)
         {
-            Game.FillSound(&GameMemory, &GameSound);
+            Game.FillSound(&Thread, &GameMemory, &GameSound);
         }
 
         Win32FillSoundBuffer(&GameSound, &Win32Audio);
 
         if (Game.IsValid)
         {
-            Game.UpdateAndRender(&GameMemory, &GameScreenBuffer, NewInput);
+            Game.UpdateAndRender(&Thread, &GameMemory, &GameScreenBuffer, NewInput);
         }
 
         LARGE_INTEGER WorkCounter = Win32GetPerfCount();
