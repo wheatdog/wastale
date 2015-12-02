@@ -81,7 +81,7 @@ GAME_FILL_SOUND(GameFillSound)
     if (!GameMemory->IsInitial)
     {
         GameState->ToneHz = 512;
-        GameState->Volume = 10000;
+        GameState->Volume = 0;
     }
 
     FillSoundOutput(GameSound, GameState);

@@ -225,7 +225,16 @@ Win32MainWindowCallback(HWND   Window,
 
         case WM_ACTIVATEAPP:
         {
-            OutputDebugStringA("WM_ACTIVATEAPP\n");
+#ifdef WASTALE_INTERNAL
+            if (WParam == TRUE)
+            {
+                SetLayeredWindowAttributes(Window, RGB(0,0,0), 255, LWA_ALPHA);
+            }
+            else
+            {
+                SetLayeredWindowAttributes(Window, RGB(0,0,0), 64, LWA_ALPHA);
+            }
+#endif
         } break;
 
         case WM_KEYDOWN:
@@ -709,11 +718,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
         return -1;
     }
 
-    HWND Window = CreateWindowEx(0, WindowClass.lpszClassName,
-                                 "Wastale", WS_OVERLAPPEDWINDOW|WS_VISIBLE,
-                                 CW_USEDEFAULT, CW_USEDEFAULT,
-                                 CW_USEDEFAULT, CW_USEDEFAULT,
-                                 0, 0, Instance, 0);
+    HWND Window = CreateWindowEx(
+#ifdef WASTALE_INTERNAL
+        WS_EX_TOPMOST|WS_EX_LAYERED,
+#else
+        0,
+#endif
+        WindowClass.lpszClassName,
+        "Wastale",
+        WS_OVERLAPPEDWINDOW|WS_VISIBLE,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        0, 0, Instance, 0);
 
     if (!Window)
     {
