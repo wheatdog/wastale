@@ -1,6 +1,8 @@
 #ifndef WASTALE_H
 #define WASTALE_H
 
+#include "wastale_platform.h"
+
 struct game_state
 {
     i32 X;

@@ -1,6 +1,13 @@
 #ifndef WASTALE_PLATFORM_H
 #define WASTALE_PLATFORM_H
 
+/*
+  NOTE(wheatdog):
+
+  - WASTALE_INTERNAL
+  - WASTALE_SLOW
+*/
+
 #define internal static
 #define global_variable static
 #define local_persist static
@@ -12,9 +19,12 @@
 #define GigaBytes(Value) (MegaBytes(Value) * 1024LL)
 #define TeraBytes(Value) (GigaBytes(Value) * 1024LL)
 
+#ifdef WASTALE_INTERNAL
 #include <assert.h>
-
 #define Assert(Expression) assert(Expression)
+#else
+#define Assert(Expression)
+#endif
 
 #define ArrayCount(Array) (sizeof(Array) / sizeof((Array)[0]))
 
@@ -34,7 +44,6 @@ typedef i32 b32;
 
 typedef float r32;
 typedef double r64;
-
 
 /*
   NOTE(wheatdog): Services that the game provides for the platform.
@@ -130,6 +139,5 @@ typedef GAME_FILL_SOUND(game_fill_sound);
 /*
   NOTE(wheatdog): Services that the platform provides for the game.
 */
-
 
 #endif

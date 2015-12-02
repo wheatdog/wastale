@@ -1,5 +1,4 @@
 #include "wastale_platform.h"
-#include "wastale.cpp"
 
 #include <windows.h>
 #include <Xaudio2.h>
@@ -34,6 +33,20 @@ global_variable b32 GlobalRunning;
 global_variable win32_offscreen_buffer GlobalScreenBuffer;
 global_variable i64 GlobalPerfCountFreq;
 global_variable WINDOWPLACEMENT GlobalWindowPlacement;
+
+internal void
+Win32UnloadGameCode(win32_game_code *Game)
+{
+    if (Game->DLL)
+    {
+        FreeLibrary(Game->DLL);
+        Game->DLL = 0;
+    }
+
+    Game->IsValid = 0;
+    Game->UpdateAndRender = 0;
+    Game->FillSound = 0;
+}
 
 internal void
 Win32LoadXInput()
@@ -468,9 +481,129 @@ Win32ProcessPendingMessage(game_controller_input *KeyboardController)
     }
 }
 
+internal FILETIME
+Win32GetFileLastWritedTime(char *FileName)
+{
+    FILETIME Result = {};
+    WIN32_FILE_ATTRIBUTE_DATA FileAttribute;
+    if (!GetFileAttributesEx(FileName, GetFileExInfoStandard, &FileAttribute))
+    {
+        return Result;
+    }
+
+    Result = FileAttribute.ftLastWriteTime;
+    return Result;
+}
+
+
+internal void
+Win32GetExeFullPath(win32_state *Win32State)
+{
+    // NOTE(wheatdog): Never use MAX_PATH in code that is user-facing because
+    // it can be dangerous and lead to bad results.
+    DWORD ExeNameLength = GetModuleFileName(0, Win32State->ExeFullPath,
+                                            sizeof(Win32State->ExeFullPath));
+
+    Win32State->OnePastExeFullPathLastSlash = Win32State->ExeFullPath;
+    for (char *Scan = Win32State->ExeFullPath;
+         *Scan != '\0';
+         ++Scan)
+    {
+        if (*Scan == '\\')
+        {
+            Win32State->OnePastExeFullPathLastSlash = Scan + 1;
+        }
+    }
+}
+
+internal u32
+StrLength(char *A)
+{
+    u32 Length = 0;
+    while (*A++)
+    {
+        ++Length;
+    }
+
+    return Length;
+}
+
+internal void
+CatStrings(char *SourceA, size_t SourceACount, char *SourceB, size_t SourceBCount,
+           char *Dest, size_t DestSize)
+{
+    // TODO(wheatdog): Handle buffer overload
+    Assert(DestSize > SourceACount + SourceBCount);
+    for (u32 Index = 0; Index < SourceACount; ++Index)
+    {
+        *Dest++ = *SourceA++;
+    }
+
+    for (u32 Index = 0; Index < SourceBCount; ++Index)
+    {
+        *Dest++ = *SourceB++;
+    }
+
+    *Dest = '\0';
+}
+
+internal void
+Win32GenerateFullPathInBuildDir(win32_state *Win32State, char *FileName, char *Dest, u32 DestSize)
+{
+    CatStrings(Win32State->ExeFullPath,
+               Win32State->OnePastExeFullPathLastSlash - Win32State->ExeFullPath,
+               FileName, StrLength(FileName),
+               Dest, DestSize);
+}
+
+internal win32_game_code
+Win32LoadGameCode(char *SourceDLLName, char *TempDLLName, char *LockFileName)
+{
+    win32_game_code Result = {};
+
+    WIN32_FILE_ATTRIBUTE_DATA Ignored;
+    if (GetFileAttributesEx(LockFileName, GetFileExInfoStandard, &Ignored))
+    {
+        return Result;
+    }
+
+    CopyFile(SourceDLLName, TempDLLName, FALSE);
+    Result.DLL = LoadLibrary(TempDLLName);
+    if (!Result.DLL)
+    {
+        return Result;
+    }
+
+    Result.UpdateAndRender = (game_update_and_render *) GetProcAddress(Result.DLL, "GameUpdateAndRender");
+    Result.FillSound = (game_fill_sound *) GetProcAddress(Result.DLL, "GameFillSound");
+    Result.LastWriteTime = Win32GetFileLastWritedTime(SourceDLLName);
+    Result.IsValid = Result.UpdateAndRender && Result.FillSound;
+
+    if (!Result.IsValid)
+    {
+        Result.UpdateAndRender = 0;
+        Result.FillSound = 0;
+    }
+
+    return Result;
+}
+
+
 int CALLBACK
 WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowCode)
 {
+    win32_state Win32State;
+    Win32GetExeFullPath(&Win32State);
+
+    char GameCodeDLLFullPath[MAX_PATH];
+    Win32GenerateFullPathInBuildDir(&Win32State, "wastale.dll", GameCodeDLLFullPath, sizeof(GameCodeDLLFullPath));
+
+    char TempCodeDLLFullPath[MAX_PATH];
+    Win32GenerateFullPathInBuildDir(&Win32State, "wastale_temp.dll", TempCodeDLLFullPath, sizeof(TempCodeDLLFullPath));
+
+    char LockFileFullPath[MAX_PATH];
+    Win32GenerateFullPathInBuildDir(&Win32State, "lock.tmp", LockFileFullPath, sizeof(LockFileFullPath));
+
     LARGE_INTEGER PerfCountFreq;
     if (QueryPerformanceFrequency(&PerfCountFreq) == 0)
     {
@@ -480,6 +613,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
 
     Win32ResizeDIBSection(&GlobalScreenBuffer, 960, 540);
     Win32LoadXInput();
+    win32_game_code Game = Win32LoadGameCode(GameCodeDLLFullPath, TempCodeDLLFullPath, LockFileFullPath);
 
     // NOTE(wheatdog): Set Windows Scheduler granularity to 1ms
     // so that our sleep() can be more granular.
@@ -571,6 +705,13 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
     LARGE_INTEGER LastCounter = Win32GetPerfCount();
     while(GlobalRunning)
     {
+        FILETIME ThisWriteTime = Win32GetFileLastWritedTime(GameCodeDLLFullPath);
+        if (CompareFileTime(&ThisWriteTime, &Game.LastWriteTime) != 0)
+        {
+            Win32UnloadGameCode(&Game);
+            Game = Win32LoadGameCode(GameCodeDLLFullPath, TempCodeDLLFullPath, LockFileFullPath);
+        }
+
         NewInput->dtForFrame = TargetSecondElapsed;
 
         // TODO(wheatdog): Zeroing marcro
@@ -725,10 +866,17 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
                  PlayCursor, Win32Audio.WriteCursor, RemainSample, GameSound.SampleCount);
         OutputDebugStringA(ShowBuffer);
 
-        GameFillSound(&GameMemory, &GameSound);
+        if (Game.IsValid)
+        {
+            Game.FillSound(&GameMemory, &GameSound);
+        }
+
         Win32FillSoundBuffer(&GameSound, &Win32Audio);
 
-        GameUpdateAndRender(&GameMemory, &GameScreenBuffer, NewInput);
+        if (Game.IsValid)
+        {
+            Game.UpdateAndRender(&GameMemory, &GameScreenBuffer, NewInput);
+        }
 
         LARGE_INTEGER WorkCounter = Win32GetPerfCount();
         r32 SecondElapseInFrame = Win32GetSecondsElapse(LastCounter, WorkCounter);

@@ -29,8 +29,22 @@ struct win32_xaudio
     void *SoundBuffer;
 
     u32 WriteCursor;
-
     u32 LatencyInSample;
+};
+
+struct win32_state
+{
+    char ExeFullPath[MAX_PATH];
+    char *OnePastExeFullPathLastSlash;
+};
+
+struct win32_game_code
+{
+    b32 IsValid;
+    HMODULE DLL;
+    FILETIME LastWriteTime;
+    game_update_and_render *UpdateAndRender;
+    game_fill_sound *FillSound;
 };
 
 #endif
