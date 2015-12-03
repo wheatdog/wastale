@@ -102,9 +102,9 @@ struct game_memory
 struct game_offscreen_buffer
 {
     void *Memory;
-    int Width;
-    int Height;
-    int BytePerPixel;
+    i32 Width;
+    i32 Height;
+    u32 BytePerPixel;
     u32 PitchInByte;
 };
 
