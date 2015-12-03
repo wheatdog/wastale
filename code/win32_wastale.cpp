@@ -173,8 +173,8 @@ Win32ResizeDIBSection(win32_offscreen_buffer *Buffer, int Width, int Height)
 
     Buffer->Info.bmiHeader.biSize = sizeof(Buffer->Info.bmiHeader);
     Buffer->Info.bmiHeader.biWidth = Buffer->Width;
-    // NOTE(wheatdog): Make the origin be the upper-left corner.
-    Buffer->Info.bmiHeader.biHeight = -Buffer->Height;
+    // NOTE(wheatdog): Make the origin be the bottom-left corner.
+    Buffer->Info.bmiHeader.biHeight = Buffer->Height;
     Buffer->Info.bmiHeader.biPlanes = 1;
     Buffer->Info.bmiHeader.biBitCount = 32;
     Buffer->Info.bmiHeader.biCompression = BI_RGB;
@@ -959,10 +959,10 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
         }
         GameSound.SampleCount = Win32Audio.LatencyInSample - RemainSample;
 
-        char ShowBuffer[128];
-        snprintf(ShowBuffer, sizeof(ShowBuffer), "PC: %d, WC: %d, RS: %d, Fill: %d\n",
-                 PlayCursor, Win32Audio.WriteCursor, RemainSample, GameSound.SampleCount);
-        OutputDebugStringA(ShowBuffer);
+        // char ShowBuffer[128];
+        // snprintf(ShowBuffer, sizeof(ShowBuffer), "PC: %d, WC: %d, RS: %d, Fill: %d\n",
+        //          PlayCursor, Win32Audio.WriteCursor, RemainSample, GameSound.SampleCount);
+        // OutputDebugStringA(ShowBuffer);
 
         if (Game.IsValid)
         {
