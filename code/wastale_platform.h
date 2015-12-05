@@ -19,9 +19,9 @@
 #define GigaBytes(Value) (MegaBytes(Value) * 1024LL)
 #define TeraBytes(Value) (GigaBytes(Value) * 1024LL)
 
+
 #ifdef WASTALE_INTERNAL
-#include <assert.h>
-#define Assert(Expression) assert(Expression)
+#define Assert(Expression) if (!(Expression)) {*(int *)0 = 0;}
 #else
 #define Assert(Expression)
 #endif

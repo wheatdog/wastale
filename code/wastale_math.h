@@ -19,6 +19,15 @@ V2(r32 X, r32 Y)
     return Result;
 }
 
+union rect2
+{
+    struct
+    {
+        v2 Min, Max;
+    };
+    v2 E[2];
+};
+
 //
 // NOTE(wheatdog): Scalar
 //
@@ -96,6 +105,35 @@ operator-=(v2 &A, v2 B)
 {
     A = A - B;
     return A;
+}
+
+inline r32
+Dot(v2 A, v2 B)
+{
+    r32 Result;
+    Result = A.X*B.X + A.Y*B.Y;
+    return Result;
+}
+
+// NOTE(wheatdog): (A x B) x C = B(C . A) - A(C . B)
+inline v2
+VectorTripleProduct(v2 A, v2 B, v2 C)
+{
+    v2 Result = Dot(A, C)*B - Dot(C, B)*A;
+    return Result;
+}
+
+//
+// NOTE(wheatdog): rect2
+//
+
+inline rect2
+RectMinDim(v2 Min, v2 Dim)
+{
+    rect2 Result;
+    Result.Min = Min;
+    Result.Max = Min + Dim;
+    return Result;
 }
 
 #endif

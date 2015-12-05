@@ -5,18 +5,34 @@
 #include "wastale_math.h"
 #include "wastale_intrinsic.h"
 
-struct player_info
+enum entity_type
+{
+    EntityType_Null,
+    EntityType_Player,
+    EntityType_Wall,
+};
+
+struct entity
 {
     b32 Exist;
+
+    entity_type Type;
 
     v2 ddP;
     v2 dP;
     v2 P;
+
+    v2 WidthHeight;
+
+    b32 Collide;
 };
 
 struct game_state
 {
-    player_info PlayerInfo[5];
+    u32 ControllerToEntityIndex[5];
+
+    u32 EntityCount;
+    entity Entities[256];
 
     u32 MeterPerPixel;
 

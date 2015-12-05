@@ -720,7 +720,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
 
     HWND Window = CreateWindowEx(
 #ifdef WASTALE_INTERNAL
-        WS_EX_TOPMOST|WS_EX_LAYERED,
+        WS_EX_LAYERED, //WS_EX_TOPMOST|
 #else
         0,
 #endif

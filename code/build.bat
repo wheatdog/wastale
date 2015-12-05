@@ -5,8 +5,9 @@ rem 4201: nonstandard extension used: nameless struct/union
 rem 4100: unreferenced formal parameter
 rem 4189: local variable is initialized but not referenced
 rem 4505: unreferenced local function has been removed
+rem 4127: conditional expression is constant
 
-set CommonComplierOptions=-nologo -MTd -Gm- -fp:fast -GR- -EHa -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -Zi -FC -DWASTALE_SLOW=1 -DWASTALE_INTERNAL=1
+set CommonComplierOptions=-nologo -MTd -Gm- -fp:fast -GR- -EHa -Od -Oi -WX -W4 -wd4201 -wd4100 -wd4189 -wd4505 -wd4127 -Zi -FC -DWASTALE_SLOW=1 -DWASTALE_INTERNAL=1
 set CommonLinkerFlags=-incremental:no -opt:ref kernel32.lib user32.lib gdi32.lib ole32.lib winmm.lib
 
 IF NOT EXIST ..\..\build mkdir ..\..\build
