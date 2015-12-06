@@ -99,6 +99,7 @@ AddEntity(game_state *GameState, v2 P, v2 WidthHeight, entity_type Type)
     return EntityIndex;
 }
 
+// TODO(wheatdog): Support other shape
 inline v2
 GetFarthestPointInDimension(rect2 Rect, v2 Dim)
 {
@@ -122,6 +123,7 @@ GetFarthestPointInDimension(rect2 Rect, v2 Dim)
     return Point[FarthestIndex];
 }
 
+// TODO(wheatdog): Support other shape
 internal v2
 Support(rect2 A, rect2 B, v2 Dim)
 {
@@ -220,6 +222,142 @@ GJKCollisionDetction(rect2 A, rect2 B)
     }
 }
 
+struct clip_dim_result
+{
+    v2 Valid;
+    v2 TouchedSide; // NOTE(wheatdog): Normalized
+};
+
+// TODO(wheatdog): Support other shapes
+
+// NOTE(wheatdog): http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+internal clip_dim_result
+ClipDimToValide(rect2 Rect, v2 Point, v2 Direction)
+{
+    clip_dim_result Result = {};
+    Result.Valid = Direction;
+    Result.TouchedSide = V2(0.0f, 0.0f);
+
+    v2 WDirectoin = GetWidthDirection(Rect);
+    v2 HDirection = GetHeightDirection(Rect);
+
+    line2 Line[4];
+    Line[0] = LineStartDim(Rect.Min, WDirectoin);
+    Line[1] = LineStartDim(Rect.Min, HDirection);
+    Line[2] = LineStartDim(Rect.Max, -WDirectoin);
+    Line[3] = LineStartDim(Rect.Max, -HDirection);
+
+    line2 TestLine = LineStartDim(Point, Direction);
+    u32 LineCount = 4;
+    for (u32 SideIndex = 0; SideIndex < LineCount; ++SideIndex)
+    {
+        v3 ACrossB = Cross(TestLine.Direction, Line[SideIndex].Direction);
+        v3 abCrossB = Cross(Line[SideIndex].Start - TestLine.Start, Line[SideIndex].Direction);
+
+        // TODO(wheatdog): Floating point nasty accuracy problem
+        r32 Theta = 0.0001f;
+        if (ACrossB.Z <= Theta && ACrossB.Z >= -Theta)
+        {
+            if (abCrossB.Z <= Theta && abCrossB.Z >= -Theta)
+            {
+                // NOTE(wheatdog): Collinear
+                Result.Valid = Direction;
+                Result.TouchedSide = Normalize(Line[SideIndex].Direction);
+            }
+            else
+            {
+                // NOTE(wheatdog): Parallel
+            }
+        }
+        else
+        {
+            r32 Percent = abCrossB.Z / ACrossB.Z;
+            if ((Percent - 1.0f <= Theta) && (Percent >= -Theta))
+            {
+                // NOTE(wheatdog): Intersect.
+                Result.Valid = (Percent-Theta)*TestLine.Direction;
+                TestLine.Direction = Result.Valid;
+                Result.TouchedSide = Normalize(Line[SideIndex].Direction);
+            }
+        }
+    }
+    return Result;
+}
+
+internal void
+MoveEntity(game_state *GameState, v2 RawInput, entity *Entity, r32 dt)
+{
+    r32 PlayerAccelerate = 50.0f; // m/s^2
+    v2 Gravity = V2(0.0f, -9.8f);
+    r32 Drag = 5.0f;
+
+    r32 RawInputLength = Length(RawInput);
+    if (RawInputLength > 0)
+    {
+        RawInput = RawInput*(1.0f/RawInputLength);
+    }
+
+    Entity->ddP = RawInput*PlayerAccelerate - Entity->dP*Drag + Gravity;
+    Entity->dP += Entity->ddP*dt;
+    v2 PlayerDelta = Entity->dP*dt + 0.5*Entity->ddP*Square(dt);
+
+    entity *CollideEntity = {};
+    for (u32 Try = 0; Try < 4; ++Try)
+    {
+        if (Length2(PlayerDelta) < 0.00001f)
+        {
+            break;
+        }
+
+        v2 TryPosition = Entity->P + PlayerDelta;
+        clip_dim_result ClipDim = {};
+        ClipDim.Valid = PlayerDelta;
+        for (u32 TestEntityIndex = 1;
+             TestEntityIndex < GameState->EntityCount;
+             ++TestEntityIndex)
+        {
+            entity *TestEntity = GameState->Entities + TestEntityIndex;
+            if (TestEntity == Entity)
+            {
+                continue;
+            }
+
+            if (!TestEntity->Exist)
+            {
+                continue;
+            }
+
+            TestEntity->Collide = false;
+            // TODO(wheatdog): Support other shapes and make it continuous
+            if (GJKCollisionDetction(RectMinDim(TestEntity->P, TestEntity->WidthHeight),
+                                     RectMinDim(TryPosition, Entity->WidthHeight)))
+            {
+                CollideEntity = TestEntity;
+                v2 MinkowskiMin = TestEntity->P - Entity->WidthHeight;
+                v2 MinkowskiWH = TestEntity->WidthHeight + Entity->WidthHeight;
+
+                ClipDim = ClipDimToValide(RectMinDim(MinkowskiMin, MinkowskiWH), Entity->P, ClipDim.Valid);
+            }
+        }
+
+        if (CollideEntity)
+        {
+            CollideEntity->Collide = true;
+        }
+
+        Entity->P += ClipDim.Valid;
+        if (ClipDim.TouchedSide.X != 0.0f || ClipDim.TouchedSide.Y != 0.0f)
+        {
+            Entity->dP = Dot(Entity->dP,  ClipDim.TouchedSide)*ClipDim.TouchedSide;
+            PlayerDelta = Dot((PlayerDelta - ClipDim.Valid), ClipDim.TouchedSide)*ClipDim.TouchedSide;
+        }
+        else
+        {
+            PlayerDelta = (PlayerDelta - ClipDim.Valid);
+        }
+    }
+}
+
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     game_state *GameState = (game_state *)GameMemory->PermanentStorage;
@@ -231,6 +369,14 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 
         v2 PlatformXY = V2(5.0f, 5.0f);
         v2 PlatformWH = V2(10.0f, 1.5f);
+        AddEntity(GameState, PlatformXY, PlatformWH, EntityType_Wall);
+
+        PlatformXY = V2(9.0f, 9.0f);
+        PlatformWH = V2(5.0f, 5.0f);
+        AddEntity(GameState, PlatformXY, PlatformWH, EntityType_Wall);
+
+        PlatformXY = V2(20.0f, 9.0f);
+        PlatformWH = V2(5.0f, 5.0f);
         AddEntity(GameState, PlatformXY, PlatformWH, EntityType_Wall);
 
         v2 GroundXY = V2(0.0f, 0.0f);
@@ -260,42 +406,14 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
             {
                 continue;
             }
-            EntityIndex = AddEntity(GameState, V2(0.0f, 0.0f), V2(1.0f, 1.5f), EntityType_Player);
+            EntityIndex = AddEntity(GameState, V2(0.0f, 3.0f), V2(1.0f, 1.5f), EntityType_Player);
             GameState->ControllerToEntityIndex[ControllerIndex] = EntityIndex;
         }
 
-        r32 PlayerAccelerate = 50.0f; // m/s^2
-        v2 Gravity = V2(0.0f, 0.0f); //V2(0.0f, -9.8f);
-        r32 Drag = 5.0f;
-
         entity *Entity = GameState->Entities + EntityIndex;
-        Entity->ddP = V2(Controller->LeftStick.X, Controller->LeftStick.Y)*PlayerAccelerate - Entity->dP*Drag + Gravity;
-        Entity->dP += Entity->ddP*GameInput->dtForFrame;
-        Entity->P += Entity->dP*GameInput->dtForFrame + 0.5*Entity->ddP*Square(GameInput->dtForFrame);
+        v2 InputRaw = V2(Controller->LeftStick.X, Controller->LeftStick.Y);
 
-
-        for (u32 TestEntityIndex = 1;
-             TestEntityIndex < GameState->EntityCount;
-             ++TestEntityIndex)
-        {
-            if (TestEntityIndex == EntityIndex)
-            {
-                continue;
-            }
-
-            entity *TestEntity = GameState->Entities + TestEntityIndex;
-            if (!TestEntity->Exist)
-            {
-                continue;
-            }
-
-            TestEntity->Collide = false;
-            if (GJKCollisionDetction(RectMinDim(TestEntity->P, TestEntity->WidthHeight),
-                                     RectMinDim(Entity->P, Entity->WidthHeight)))
-            {
-                TestEntity->Collide = true;
-            }
-        }
+        MoveEntity(GameState, InputRaw, Entity, GameInput->dtForFrame);
     }
 
     // NOTE(wheatdog): Clear screen to black
@@ -337,7 +455,7 @@ GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
                          (Entity->P.Y*GameState->MeterPerPixel),
                          (Entity->WidthHeight.X*GameState->MeterPerPixel),
                          (Entity->WidthHeight.Y*GameState->MeterPerPixel),
-                         1.0f, 1.0f, Blue);
+                         0.5f, 0.5f, Blue);
             } break;
         }
     }

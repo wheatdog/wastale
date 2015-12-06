@@ -19,6 +19,25 @@ V2(r32 X, r32 Y)
     return Result;
 }
 
+union v3
+{
+    struct
+    {
+        r32 X, Y, Z;
+    };
+    r32 E[3];
+};
+
+inline v3
+V3(r32 X, r32 Y, r32 Z)
+{
+    v3 Result;
+    Result.X = X;
+    Result.Y = Y;
+    Result.Z = Z;
+    return Result;
+}
+
 union rect2
 {
     struct
@@ -26,6 +45,13 @@ union rect2
         v2 Min, Max;
     };
     v2 E[2];
+};
+
+struct line2
+{
+    v2 Start;
+    v2 Direction;
+    r32 Length;
 };
 
 //
@@ -115,11 +141,41 @@ Dot(v2 A, v2 B)
     return Result;
 }
 
+inline v3
+Cross(v2 A, v2 B)
+{
+    v3 Result = V3(0, 0, A.X*B.Y-A.Y*B.X);
+    return Result;
+}
+
 // NOTE(wheatdog): (A x B) x C = B(C . A) - A(C . B)
 inline v2
 VectorTripleProduct(v2 A, v2 B, v2 C)
 {
     v2 Result = Dot(A, C)*B - Dot(C, B)*A;
+    return Result;
+}
+
+inline r32
+Length2(v2 A)
+{
+    r32 Result = Dot(A, A);
+    return Result;
+}
+
+inline r32
+Length(v2 A)
+{
+    r32 Result = sqrtf(Dot(A, A));
+
+    return Result;
+}
+
+// TODO(wheatdog): Do I want to check whether length is zero here?
+inline v2
+Normalize(v2 A)
+{
+    v2 Result = A*(1.0f / Length(A));
     return Result;
 }
 
@@ -133,6 +189,34 @@ RectMinDim(v2 Min, v2 Dim)
     rect2 Result;
     Result.Min = Min;
     Result.Max = Min + Dim;
+    return Result;
+}
+
+inline v2
+GetWidthDirection(rect2 Rect)
+{
+    v2 Result = V2(Rect.Max.X - Rect.Min.X, 0);
+    return Result;
+}
+
+inline v2
+GetHeightDirection(rect2 Rect)
+{
+    v2 Result = V2(0, Rect.Max.Y - Rect.Min.Y);
+    return Result;
+}
+
+//
+// NOTE(wheatdog): line
+//
+
+inline line2
+LineStartDim(v2 Start, v2 Direction)
+{
+    line2 Result;
+    Result.Start = Start;
+    Result.Direction = Direction;
+    Result.Length = Length(Direction);
     return Result;
 }
 
