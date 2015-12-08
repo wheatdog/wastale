@@ -255,7 +255,7 @@ ClipDimToValide(rect2 Rect, v2 Point, v2 Direction)
         v3 abCrossB = Cross(Line[SideIndex].Start - TestLine.Start, Line[SideIndex].Direction);
 
         // TODO(wheatdog): Floating point nasty accuracy problem
-        r32 Theta = 0.0001f;
+        r32 Theta = 0.00001f;
         if (ACrossB.Z <= Theta && ACrossB.Z >= -Theta)
         {
             if (abCrossB.Z <= Theta && abCrossB.Z >= -Theta)
@@ -301,7 +301,7 @@ MoveEntity(game_state *GameState, v2 RawInput, entity *Entity, r32 dt)
     Entity->dP += Entity->ddP*dt;
     v2 PlayerDelta = Entity->dP*dt + 0.5*Entity->ddP*Square(dt);
 
-    entity *CollideEntity = {};
+    entity *CollideEntity = 0;
     for (u32 Try = 0; Try < 4; ++Try)
     {
         if (Length2(PlayerDelta) < 0.00001f)
@@ -309,7 +309,6 @@ MoveEntity(game_state *GameState, v2 RawInput, entity *Entity, r32 dt)
             break;
         }
 
-        v2 TryPosition = Entity->P + PlayerDelta;
         clip_dim_result ClipDim = {};
         ClipDim.Valid = PlayerDelta;
         for (u32 TestEntityIndex = 1;
@@ -328,7 +327,9 @@ MoveEntity(game_state *GameState, v2 RawInput, entity *Entity, r32 dt)
             }
 
             TestEntity->Collide = false;
+
             // TODO(wheatdog): Support other shapes and make it continuous
+            v2 TryPosition = Entity->P + ClipDim.Valid;
             if (GJKCollisionDetction(RectMinDim(TestEntity->P, TestEntity->WidthHeight),
                                      RectMinDim(TryPosition, Entity->WidthHeight)))
             {
