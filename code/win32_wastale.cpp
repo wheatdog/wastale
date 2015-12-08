@@ -483,7 +483,32 @@ Win32ToggleFullscreen(HWND Window)
 }
 
 internal void
-Win32ProcessPendingMessage(game_controller_input *KeyboardController)
+Win32TogglePlayBack(win32_state *Win32State, u32 PlaybackIndex)
+{
+    if (!Win32State->PlayingIndex)
+    {
+        win32_playback *Slut = &Win32State->Playbacks[PlaybackIndex];
+        if (!Win32State->RecordingIndex)
+        {
+            Slut->Count = 0;
+            Win32State->RecordingIndex = PlaybackIndex;
+        }
+        else if (Win32State->RecordingIndex == PlaybackIndex)
+        {
+            Slut->Max = Slut->Count;
+            Slut->Count = 0;
+            Win32State->RecordingIndex = 0;
+            Win32State->PlayingIndex = PlaybackIndex;
+        }
+    }
+    else
+    {
+        Win32State->PlayingIndex = 0;
+    }
+}
+
+internal void
+Win32ProcessPendingMessage(win32_state *Win32State, game_controller_input *KeyboardController)
 {
     MSG Message;
 
@@ -539,6 +564,15 @@ Win32ProcessPendingMessage(game_controller_input *KeyboardController)
                     {
                         Win32ProcessKeyboardButton(IsDown, &KeyboardController->Start);
                     }
+#ifdef WASTALE_INTERNAL
+                    else if (VKCode == VK_F1)
+                    {
+                        if (IsDown)
+                        {
+                            Win32TogglePlayBack(Win32State, 1);
+                        }
+                    }
+#endif
                 }
 
                 b32 AltKeyIsDown = (Message.lParam & (1 << 29));
@@ -677,7 +711,7 @@ Win32LoadGameCode(char *SourceDLLName, char *TempDLLName, char *LockFileName)
 int CALLBACK
 WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowCode)
 {
-    win32_state Win32State;
+    win32_state Win32State = {};
     Win32GetExeFullPath(&Win32State);
 
     char GameCodeDLLFullPath[MAX_PATH];
@@ -771,6 +805,18 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
         return -1;
     }
 
+    // TODO(wheatdog): Make this more flexable? Now is fixed for 60 minutes.
+    u32 MaxPlaybackInputCount = (u32)(GameRefreshHz+0.5f)*60*60;
+    Win32State.Playbacks[1].Inputs = (game_input *)
+        VirtualAlloc(0, (ArrayCount(Win32State.Playbacks)-1)*MaxPlaybackInputCount*sizeof(game_input), MEM_RESERVE|MEM_COMMIT,
+                     PAGE_READWRITE);
+    Win32State.Playbacks[1].PermanentMemory = VirtualAlloc(0, (ArrayCount(Win32State.Playbacks)-1)*GameMemory.PermanentStorageSize,
+                                                           MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    for (u32 PlaybackIndex = 2; PlaybackIndex < ArrayCount(Win32State.Playbacks); ++PlaybackIndex)
+    {
+        Win32State.Playbacks[PlaybackIndex].Inputs = Win32State.Playbacks[PlaybackIndex-1].Inputs + MaxPlaybackInputCount;
+    }
+
     // TODO(wheatdog): Need more robust test here. This value seems to be the
     // maximum latency I will get.
     r32 MaxAudioLantencyInFrames = 1.5f;
@@ -828,7 +874,7 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
                 = OldKeyboardController->Buttons[ButtonIndex];
         }
 
-        Win32ProcessPendingMessage(NewKeyboardController);
+        Win32ProcessPendingMessage(&Win32State, NewKeyboardController);
 
         if (NewKeyboardController->MoveUp.EndedDown)
         {
@@ -940,6 +986,28 @@ WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Commandline, int ShowC
             // Vibration.wLeftMotorSpeed = ;
             // Vibration.wRightMotorSpeed = ;
             // XInputSetState(ControllerIndex, &Vibration);
+        }
+
+        if (Win32State.RecordingIndex)
+        {
+            win32_playback *PlaybackSlut = &Win32State.Playbacks[Win32State.RecordingIndex];
+            if (!PlaybackSlut->Count)
+            {
+                CopyMemory(PlaybackSlut->PermanentMemory, GameMemory.PermanentStorage, GameMemory.PermanentStorageSize);
+            }
+            Assert(PlaybackSlut->Count <= MaxPlaybackInputCount);
+            PlaybackSlut->Inputs[PlaybackSlut->Count++] = *NewInput;
+        }
+
+        if (Win32State.PlayingIndex)
+        {
+            win32_playback *PlaybackSlut = &Win32State.Playbacks[Win32State.PlayingIndex];
+            if (!PlaybackSlut->Count)
+            {
+                CopyMemory(GameMemory.PermanentStorage, PlaybackSlut->PermanentMemory, GameMemory.PermanentStorageSize);
+            }
+            *NewInput = PlaybackSlut->Inputs[PlaybackSlut->Count++];
+            PlaybackSlut->Count %= PlaybackSlut->Max;
         }
 
         game_offscreen_buffer GameScreenBuffer;

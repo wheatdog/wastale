@@ -32,10 +32,22 @@ struct win32_xaudio
     u32 LatencyInSample;
 };
 
+struct win32_playback
+{
+    void *PermanentMemory;
+    u32 Max;
+    u32 Count;
+    game_input *Inputs;
+};
+
 struct win32_state
 {
     char ExeFullPath[MAX_PATH];
     char *OnePastExeFullPathLastSlash;
+
+    u32 PlayingIndex;
+    u32 RecordingIndex;
+    win32_playback Playbacks[5];
 };
 
 struct win32_game_code
