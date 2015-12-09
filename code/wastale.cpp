@@ -255,14 +255,12 @@ ClipDimToValide(rect2 Rect, v2 Point, v2 Direction)
         v3 abCrossB = Cross(Line[SideIndex].Start - TestLine.Start, Line[SideIndex].Direction);
 
         // TODO(wheatdog): Floating point nasty accuracy problem
-        r32 Theta = 0.00001f;
-        if (ACrossB.Z <= Theta && ACrossB.Z >= -Theta)
+        r32 Theta = 0.001f;
+        if (ACrossB.Z == 0.0f)
         {
-            if (abCrossB.Z <= Theta && abCrossB.Z >= -Theta)
+            if (abCrossB.Z == 0.0f)
             {
                 // NOTE(wheatdog): Collinear
-                Result.Valid = Direction;
-                Result.TouchedSide = Normalize(Line[SideIndex].Direction);
             }
             else
             {
@@ -272,10 +270,19 @@ ClipDimToValide(rect2 Rect, v2 Point, v2 Direction)
         else
         {
             r32 Percent = abCrossB.Z / ACrossB.Z;
-            if ((Percent - 1.0f <= Theta) && (Percent >= -Theta))
+            if ((Percent <= 1.0f) && (Percent >= 0.0f))
             {
                 // NOTE(wheatdog): Intersect.
-                Result.Valid = (Percent-Theta)*TestLine.Direction;
+                if (Percent >= Theta)
+                {
+                    Percent -= Theta;
+                }
+                else
+                {
+                    Percent = 0.0f;
+                }
+                Assert(Percent >= 0.0f);
+                Result.Valid = Percent*TestLine.Direction;
                 TestLine.Direction = Result.Valid;
                 Result.TouchedSide = Normalize(Line[SideIndex].Direction);
             }
